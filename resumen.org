@@ -1,5 +1,8 @@
 #+LATEX_HEADER: \usepackage[margin=0.5in]{geometry}
 #+OPTIONS: toc:nil
+#+LATEX_HEADER: \RequirePackage{fancyvrb}
+#+LATEX_HEADER: \DefineVerbatimEnvironment{verbatim}{Verbatim}{fontsize=\scriptsize}
+
 #+TITLE:
 * Que poner en el resumen
 - Descriptores de la GDT
