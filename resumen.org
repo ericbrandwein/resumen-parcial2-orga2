@@ -1,5 +1,6 @@
 #+LATEX_HEADER: \usepackage[margin=0.5in]{geometry}
-
+#+OPTIONS: toc:nil
+#+TITLE:
 * Que poner en el resumen
 - Descriptores de la GDT
 - Descriptores de la IDT
@@ -12,6 +13,7 @@
 
 
 TSS
-eflags = 0x202 con interrupciones, 0x2 sin
+eflags = ~0x202~ con interrupciones, ~0x2~ sin
 
-iomap = 0xFFFF
+iomap = ~0xFFFF~
+
