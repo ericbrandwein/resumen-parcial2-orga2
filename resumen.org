@@ -11,6 +11,12 @@
   - En Assembly 
 
 
+#+ATTR_HTML: :width 50% :height 50% 
+[[./imagenes/segment-descriptor.png]]
+
+#+ATTR_HTML: :width 50% :height 50% 
+[[./imagenes/code-and-data-segment-types.png]]
+
 TSS
 eflags = 0x202 con interrupciones, 0x2 sin
 
