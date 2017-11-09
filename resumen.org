@@ -1,4 +1,4 @@
-#+LATEX_HEADER: \usepackage[margin=0.5in]{geometry}
+#+LATEX_HEADER: \usepackage[margin=0in]{geometry}
 #+OPTIONS: toc:nil
 #+LATEX_HEADER: \RequirePackage{fancyvrb}
 #+LATEX_HEADER: \DefineVerbatimEnvironment{verbatim}{Verbatim}{fontsize=\scriptsize}
@@ -39,6 +39,9 @@ typedef struct str_gdt_entry {
 
 #+ATTR_HTML: :width 50% :height 50% 
 [[./imagenes/code-and-data-segment-types.png]]
+
+#+ATTR_HTML: :width 50% :height 50% 
+[[./imagenes/32bit-TSS.png]]
 
 TSS
 eflags = ~0x202~ con interrupciones, ~0x2~ sin
