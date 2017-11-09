@@ -1,2 +1,2 @@
 pdf:
-	pandoc -r org -o resumen.pdf resumen.txt
+	pandoc -o resumen.pdf resumen.org
