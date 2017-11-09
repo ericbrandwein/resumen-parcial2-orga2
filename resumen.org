@@ -1,7 +1,30 @@
-#+LATEX_HEADER: \usepackage[margin=0in]{geometry}
+#+LATEX_HEADER: \usepackage[margin=0.5in]{geometry}
+#+OPTIONS: toc:nil
+#+LATEX_HEADER: \RequirePackage{fancyvrb}
+#+LATEX_HEADER: \DefineVerbatimEnvironment{verbatim}{Verbatim}{fontsize=\scriptsize}
 
+#+TITLE:
 * Que poner en el resumen
 - Descriptores de la GDT
+
+#+BEGIN_SRC C
+typedef struct str_gdt_entry {
+    unsigned short  limit_0_15;
+    unsigned short  base_0_15;
+    unsigned char   base_23_16;
+    unsigned char   type:4;
+    unsigned char   s:1;
+    unsigned char   dpl:2;
+    unsigned char   p:1;
+    unsigned char   limit_16_19:4;
+    unsigned char   avl:1;
+    unsigned char   l:1;
+    unsigned char   db:1;
+    unsigned char   g:1;
+    unsigned char   base_31_24;
+} gdt_entry;
+#+END_SRC
+
 - Descriptores de la IDT
 - Descriptores de las esctructuras de paginación 
 - Como es la TSS
@@ -18,6 +41,7 @@
 [[./imagenes/code-and-data-segment-types.png]]
 
 TSS
-eflags = 0x202 con interrupciones, 0x2 sin
+eflags = ~0x202~ con interrupciones, ~0x2~ sin
 
-iomap = 0xFFFF
+iomap = ~0xFFFF~
+
