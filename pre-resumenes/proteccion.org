@@ -8,7 +8,7 @@
 
 *Segment-protection*: Setting CR0.PE = 1 switch to protected mode which
  in turn enables segment protection mechanism.
-*Page level protection*: Is automaticaly enabled when enabling paging
+*Page level protection*: Is automatically enabled when enabling paging
  (ie setting CR0.PG=1)
 
 ** Fields and Flags
@@ -21,7 +21,7 @@
 
 **** *Limit* field: size
 
-**** *G* flag: size
+**** *G* flag: granularity. If enabled, the limit counts the number of 4kB pages, instead of bytes.
 
 **** *E*: expand down?
 

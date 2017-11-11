@@ -5,7 +5,7 @@
 
 #+TITLE:
 * Que poner en el resumen
-- Descriptores de la GDT
+- [X] Descriptores de la GDT
 
 #+BEGIN_SRC C
 typedef struct str_gdt_entry {
@@ -27,24 +27,63 @@ typedef struct str_gdt_entry {
 
 - Descriptores de la IDT
 - Descriptores de las esctructuras de paginación 
-- Como es la TSS
+- [X] Como es la TSS
 - Como convertir una direccion logica -> lineal -> fisica
 - Ejemplos de funciones del TP3:
   - En C
   - En Assembly 
 
 
+** Descriptores de la GDT
 #+ATTR_HTML: :width 50% :height 50% 
 [[./imagenes/segment-descriptor.png]]
 
 #+ATTR_HTML: :width 50% :height 50% 
 [[./imagenes/code-and-data-segment-types.png]]
 
+** TSS
 #+ATTR_HTML: :width 50% :height 50% 
 [[./imagenes/32bit-TSS.png]]
 
-TSS
 eflags = ~0x202~ con interrupciones, ~0x2~ sin
 
 iomap = ~0xFFFF~
 
+** Paging
+*** Estructuras
+#+ATTR_HTML: :width 50% :height 50% 
+[[./imagenes/CR3-PDE-PTE.png]]
+
+**** CR3
+
+- *Address of page directory*: los 12 bits menos significativos se asumen que son 0.
+
+**** Page Directory Entry (PDE)
+
+- *Address of page table*: los 12 bits menos significativos se asumen que son 0.
+- *R/W*: Si se puede escribir o leer y escribir. Si el bit WP del CR0 esta en 0, el kernel siempre puede escribir.
+- *U/S*: Si es 0, solo si tenes un CPL = 0 podes tocar estas páginas.
+- *A*: Accessed. Si fue leída o escrita alguna página a la que apunta esto. La dessetea el SO.
+# - *G*: Ignorado.
+# - *D*: Dirty. Si fue escrita alguna página a la que apunta esto.
+
+**** Page Table Entry (PTE)
+- *D*: Dirty. Si fue escrita alguna página a la que apunta esto. La dessetea el SO.
+- *A, U/S, R/W*: Lo mismo que en el PDE. 
+
+*** Dirección logica -> virtual -> física
+#+BEGIN_SRC
+logica = selector_de_segmento:offset
+selector_de_segmento[0:1] = RPL = requested priviledge level.
+selector_de_segmento[2] = TI = Si es 1, el segmento esta en la LDT. Sino, en la GDT.
+selector_de_segmento[3:15] = índice en la GDT/LDT.
+entrada_GDT = GDTR + selector_de_segmento.indice 
+virtual = entrada_GDT.Base + logica.offset
+
+virtual[0:11] = offset
+virtual[12:21] = table
+virtual[22:31] = directory
+directory_entry = CR3 + virtual.directory
+page_table_entry = directory_entry.address + virtual.table
+fisica = page_table_entry.address + virtual.offset 
+#+END_SRC
