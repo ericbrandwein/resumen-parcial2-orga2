@@ -7,9 +7,9 @@
 * Que poner en el resumen
 - [X] Descriptores de la GDT
 - Descriptores de la IDT
-- Descriptores de las esctructuras de paginación 
+- [X] Descriptores de las esctructuras de paginación 
 - [X] Como es la TSS
-- Como convertir una direccion logica -> lineal -> fisica
+- [X] Como convertir una direccion logica -> lineal -> fisica
 - Ejemplos de funciones del TP3:
   - En C
   - En Assembly 
@@ -74,4 +74,37 @@ virtual[22:31] = directory
 directory_entry = CR3 + virtual.directory
 page_table_entry = directory_entry.address + virtual.table
 fisica = page_table_entry.address + virtual.offset 
+#+END_SRC
+
+** IDT
+*** IDTR
+#+BEGIN_SRC
+idtr[0:15] = limit
+idtr[16:47] = base = direccion lineal en donde empieza la IDT 
+#+END_SRC
+Se carga con ~LIDT~.
+*** IDT Entry Descriptor
+#+BEGIN_SRC C
+struct IDTDescr {
+   uint16_t offset_1; // offset bits 0..15
+   uint16_t selector; // a code segment selector in GDT or LDT
+   uint8_t zero;      // unused, set to 0
+   uint8_t type_attr; // type and attributes, see below
+   uint16_t offset_2; // offset bits 16..31
+};
+#+END_SRC
+~type_attr~:
+#+BEGIN_SRC
+  7                           0
++---+---+---+---+---+---+---+---+
+| P |  DPL  | S |    GateType   |
++---+---+---+---+---+---+---+---+
+P = present
+DPL = Descriptor Priviledge Level = el nivel de privilegios mínimo que tiene que tener el descriptor que llama para que lo pueda hacer.
+S = 0 para interrupt y trap gates   
+GateType = si 0x5 => 32-bit task gate
+           si 0x6 => 16-bit interrupt gate
+           si 0x7 => 16-bit trap gate
+           si 0xE => 32-bit interrupt gate
+           si 0xF => 32-bit trap gate
 #+END_SRC
