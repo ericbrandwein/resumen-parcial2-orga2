@@ -82,7 +82,17 @@ fisica = page_table_entry.address + virtual.offset
 idtr[0:15] = limit
 idtr[16:47] = base = direccion lineal en donde empieza la IDT 
 #+END_SRC
-Se carga con ~LIDT~.
+Se carga poniendo en algún lugar del código:
+#+BEGIN_SRC
+idt_info:
+    dw idt_end - idt_start - 1
+    dd idt_start
+#+END_SRC
+Y después:
+#+BEGIN_SRC
+lidt [idt_info]
+#+END_SRC
+
 *** IDT Entry Descriptor
 #+BEGIN_SRC C
 struct IDTDescr {
