@@ -72,6 +72,13 @@ iomap = ~0xFFFF~
 - *A, U/S, R/W*: Lo mismo que en el PDE. 
 
 *** Dirección logica -> virtual -> física
+**** Modo real
+#+BEGIN_SRC
+logica = selector_de_segmento:offset
+fisica = selector_de_segmento << 4 + offset
+#+END_SRC
+
+**** Modo protegido
 #+BEGIN_SRC
 logica = selector_de_segmento:offset
 selector_de_segmento[0:1] = RPL = requested priviledge level.
