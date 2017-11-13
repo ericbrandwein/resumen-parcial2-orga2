@@ -6,7 +6,7 @@
 #+TITLE:
 * Que poner en el resumen
 - [X] Descriptores de la GDT
-- Descriptores de la IDT
+- [X] Descriptores de la IDT
 - [X] Descriptores de las esctructuras de paginación 
 - [X] Como es la TSS
 - [X] Como convertir una direccion logica -> lineal -> fisica
@@ -51,6 +51,8 @@ iomap = ~0xFFFF~
 **** Page Table Entry (PTE)
 - *D*: Dirty. Si fue escrita alguna página a la que apunta esto. La dessetea el SO.
 - *A, U/S, R/W*: Lo mismo que en el PDE. 
+- *G*: Ignorado.
+
 
 *** Dirección logica -> virtual -> física
 **** Modo real
