@@ -1,7 +1,7 @@
 #+LATEX_HEADER: \usepackage[margin=0.1in]{geometry}
 #+OPTIONS: toc:nil
 #+TITLE:
-
+\setlength{\parindent}{0em}
 * resumen
 
 
@@ -12,8 +12,7 @@ Esquema de segmentacion flat. 4 segmentos, 2 de codigo con nivel
 entradas para las TSSs. Las primeras entradas de la GDT tendrán:
  (Base=0, G=1, Límite=lim, P=1, S=1). 
 Seg-codigo-sys: (DLP=0, Type=0xA), Seg-datos-sys (DPL=0, Type=2)
-Seg-codigo-usr: (DLP=3, Type=0xA), Seg-datos-usr (DPL=3, Type=2)
-
+Seg-codigo-usr: (DLP=3, Type=0xA), Seg-datos-usr (DPL=3, Type=2),
 donde lim sera el mismo para todo y dependera del tamaño de la
 memoria...
 MAX_ADDR = limite * 0x1000 + 0xFFF
@@ -21,47 +20,39 @@ MAX_ADDR = limite * 0x1000 + 0xFFF
 ** Paging (32 bits)
 Número de entradas en PD y PT: 1024 = 2^10 ; 
 Tamaño de cada entrada: 32 bits = 4 bytes ; 
-Tamaño de página: 4kb = 2^12 bytes
-
+Tamaño de página: 4kb = 2^12 bytes.
 Por cada tarea un directorio de paginas con X tabla
 *** Ejemplo inicializo tarea: 
-**** Mapeo de kernel con Identity mapping.
-PDEs: P = 1, R/W = 1, U/S = 0 resto 0
-PTE: P = 1, R/W = 1, U/S = 0, resto 0
-**** mapeo codigo tarea: P = 1, R/W = 0,  U/S = 1
-**** mapeo datos tarea: P = 1, R/W = 1,  U/S = 1
-**** mapeo pila nivel 3 tarea: P=1, R/W=1, U/S=1
-**** mapeo pila nivel 0 tarea: P=1, R/W=1, U/S=0
+*Mapeo de kernel con Identity mapping* (PDEs: P = 1, R/W = 1, U/S = 0
+ resto 0; PTE: P = 1, R/W = 1, U/S = 0, resto 0).
+*mapeo codigo tarea*: P = 1, R/W = 0,  U/S = 1
+*mapeo datos tarea*: P = 1, R/W = 1,  U/S = 1
+*mapeo pila nivel 3 tarea*: P=1, R/W=1, U/S=1
+*mapeo pila nivel 0 tarea*: P=1, R/W=1, U/S=0
 
-*** Estructuras
+*CR3*:Address of page directory. Los 12 bits menos significativos 
+se asumen que son 0.
 
-**** CR3
+*Page Directory Entry (PDE)*
+*Address of page table*: los 12 bits menos significativos se asumen
+ que son 0.
+*R/W*: Si se puede escribir o leer y escribir. Si el bit WP del CR0
+ esta en 0, el kernel siempre puede escribir.
+*U/S*: Si es 0, solo si tenes un CPL = 0 podes tocar estas páginas.
+*A*: Accessed. Si fue leída o escrita alguna página a la que apunta
+ esto. La desetea el SO.
+*G*: Global. Ignorado.
+*D*: Dirty. Si fue escrita alguna página a la que apunta esto.
 
-*Address of page directory*: 
-los 12 bits menos significativos se asumen que son 0.
+*Page Table Entry (PTE)*
+*D*: Dirty. Si fue escrita alguna página a la que apunta esto. 
+La dessetea el SO. *A, U/S, R/W*: Lo mismo que en el PDE. 
 
-**** Page Directory Entry (PDE)
+*Dirección logica -> virtual -> física*
+*Modo real*: ~logica = selector_de_segmento:offset~
 
-- *Address of page table*: los 12 bits menos significativos se asumen que son 0.
-- *R/W*: Si se puede escribir o leer y escribir. Si el bit WP del CR0 esta en 0, el kernel siempre puede escribir.
-- *U/S*: Si es 0, solo si tenes un CPL = 0 podes tocar estas páginas.
-- *A*: Accessed. Si fue leída o escrita alguna página a la que apunta esto. La dessetea el SO.
-- *G*: Global. Ignorado.
-- *D*: Dirty. Si fue escrita alguna página a la que apunta esto.
-
-**** Page Table Entry (PTE)
-- *D*: Dirty. Si fue escrita alguna página a la que apunta esto. La dessetea el SO.
-- *A, U/S, R/W*: Lo mismo que en el PDE. 
-
-
-*** Dirección logica -> virtual -> física
-**** Modo real
-#+BEGIN_SRC
-logica = selector_de_segmento:offset
-fisica = selector_de_segmento << 4 + offset
-#+END_SRC
-
-**** Modo protegido
+~; fisica = selector_de_segmento << 4 + offset~
+*Modo protegido*
 #+BEGIN_SRC
 logica = selector_de_segmento:offset
 selector_de_segmento[0:1] = RPL = requested priviledge level.
@@ -92,19 +83,7 @@ Necesitaremos cargar una IDT con entradas para todas las excepciones
 Todos los descriptores tendran P = 1, DPL = 0 y 
 selector de segmento = 0x8. Se asume PIC ya configurado.
 
-*** IDTR
-#+BEGIN_SRC
-idtr[0:15] = limit
-idtr[16:47] = base = direccion lineal en donde empieza la IDT 
-#+END_SRC
-Se carga poniendo en algún lugar del código:
-#+BEGIN_SRC
-idt_info:
-    dw idt_end - idt_start - 1
-    dd idt_start
-#+END_SRC
-Y después:
-#+BEGIN_SRC
-lidt [idt_info]
-#+END_SRC
+*IDTR*
+~idtr[0:15] = limit  ;~
+~idtr[16:47] = base = direccion lineal en donde empieza la IDT~
 
