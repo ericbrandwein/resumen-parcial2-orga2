@@ -195,3 +195,28 @@ void chequear_modificaciones () {
 }
 #+end_src
 
+#+begin_src c
+void mapear_pagina (uint virtual, uint cr3, uint fisica, uint r_w, uint u_s) { 
+    uint pde_index = virtual >> 22;
+    utin pte_index = (virtual << 10) >> 22; 
+    pde* directorio = (pde*) cr3;
+    if (!directorio[pde_index].P)
+        incicilzar_directorio (pde_index, cr3, r_w, u_s);
+    pte* tablas = (pte*) diectorio[pde_index].addr << 12);
+    inicializar_tabla (pde_index, pte_index, cr3, r_w, u_s);
+    tablas[pte_index].addr = fisica >> 12;
+    tlbflush ();
+}
+
+void inicializar_tabla (uint pde_index, uint pte_index, uint cr3, uint r_w, uint u_s) {
+    pde * directorio = (pde*) cr3;
+    pte* tabla = (pte*) (directorio[pde_index].addr << 12);
+    //TODO
+}
+
+void inicializar_directorio (uint indicem uint cr3, uint r_w, uint u_s) {
+    pte* tabla = (pte*) obtener_pagina_libre();
+    pde* directorio = (pde*) cr3;
+// TODO terminar
+}
+#+end_src
