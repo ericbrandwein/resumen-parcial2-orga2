@@ -5,47 +5,40 @@
 * resumen
 
 
-** Descriptores de la GDT
-#+ATTR_HTML: :width 50% :height 50% 
-[[./imagenes/segment-descriptor.png]]
+** Segmentación
+Esquema de segmentacion flat. 4 segmentos, 2 de codigo con nivel
+(DPL) 0 y 3 y dos de datos, con nivel 0 y 3. No usaremos LDT si
+ no sólo la GDT. La GDT tendrá una entrada nula y además las
+entradas para las TSSs. Las primeras entradas de la GDT tendrán:
+ (Base=0, G=1, Límite=lim, P=1, S=1). 
+Seg-codigo-sys: (DLP=0, Type=0xA), Seg-datos-sys (DPL=0, Type=2)
+Seg-codigo-usr: (DLP=3, Type=0xA), Seg-datos-usr (DPL=3, Type=2)
 
-#+ATTR_HTML: :width 50% :height 50% 
-[[./imagenes/code-and-data-segment-types.png]]
-
-** TSS
-#+ATTR_HTML: :width 50% :height 50% 
-[[./imagenes/32bit-TSS.png]]
-
-Por cada tarea se necesita una TSS en memoria, que se 
-carga en la GDT.
-
-Es necesaria 1 para la tarea inicial, puede ser necesaria
-una idle, y luego uan para cada tarea de usuario.
-
-EIP y ESP deben ser posiciones válidas.
-
-eflags = ~0x202~ con interrupciones, ~0x2~ sin
-
-iomap = ~0xFFFF~
+donde lim sera el mismo para todo y dependera del tamaño de la
+memoria...
+MAX_ADDR = limite * 0x1000 + 0xFFF
 
 ** Paging (32 bits)
 Número de entradas en PD y PT: 1024 = 2^10 ; 
 Tamaño de cada entrada: 32 bits = 4 bytes ; 
 Tamaño de página: 4kb = 2^12 bytes
 
-*** Ejemplo: 
-**** Mapeo de kernel:
-PDEs: P = 1, R/W = ?, U/S = ?, PWT = 0, PCD = 0, A = 0, PS = 0
-PTE: P = 1, R/W = 0, U/S = 0, PWT = 0, PCD = 0, A = 0, D = 0, PAT = 0, G = 0
-
+Por cada tarea un directorio de paginas con X tabla
+*** Ejemplo inicializo tarea: 
+**** Mapeo de kernel con Identity mapping.
+PDEs: P = 1, R/W = 1, U/S = 0 resto 0
+PTE: P = 1, R/W = 1, U/S = 0, resto 0
+**** mapeo codigo tarea: P = 1, R/W = 0,  U/S = 1
+**** mapeo datos tarea: P = 1, R/W = 1,  U/S = 1
+**** mapeo pila nivel 3 tarea: P=1, R/W=1, U/S=1
+**** mapeo pila nivel 0 tarea: P=1, R/W=1, U/S=0
 
 *** Estructuras
-#+ATTR_HTML: :width 50% :height 50% 
-[[./imagenes/CR3-PDE-PTE.png]]
 
 **** CR3
 
-- *Address of page directory*: los 12 bits menos significativos se asumen que son 0.
+*Address of page directory*: 
+los 12 bits menos significativos se asumen que son 0.
 
 **** Page Directory Entry (PDE)
 
@@ -85,7 +78,20 @@ page_table_entry = directory_entry.address + virtual.table
 fisica = page_table_entry.address + virtual.offset 
 #+END_SRC
 
-** IDT
+** Tareas
+Por cada tarea se necesita una TSS en memoria, que se carga en la
+GDT. Es necesaria 1 para la tarea inicial, puede ser necesaria
+una idle, y luego uan para cada tarea de usuario.
+
+EIP y ESP deben ser posiciones válidas. eflags = ~0x202~ con 
+interrupciones, ~0x2~ sin. iomap = ~0xFFFF~
+
+** Interrupciones
+Necesitaremos cargar una IDT con entradas para todas las excepciones
+ del procesador y (si piden) la interrupcion del reloj (32) etc.
+Todos los descriptores tendran P = 1, DPL = 0 y 
+selector de segmento = 0x8. Se asume PIC ya configurado.
+
 *** IDTR
 #+BEGIN_SRC
 idtr[0:15] = limit
@@ -102,29 +108,3 @@ Y después:
 lidt [idt_info]
 #+END_SRC
 
-*** IDT Entry Descriptor
-#+BEGIN_SRC C
-struct IDTDescr {
-   uint16_t offset_1; // offset bits 0..15
-   uint16_t selector; // a code segment selector in GDT or LDT
-   uint8_t zero;      // unused, set to 0
-   uint8_t type_attr; // type and attributes, see below
-   uint16_t offset_2; // offset bits 16..31
-};
-#+END_SRC
-~type_attr~:
-#+BEGIN_SRC
-  7                           0
-+---+---+---+---+---+---+---+---+
-| P |  DPL  | S |    GateType   |
-+---+---+---+---+---+---+---+---+
-P = present
-DPL = Descriptor Priviledge Level = el nivel de privilegios mínimo que tiene
-que tener el descriptor que llama para que lo pueda hacer.
-S = 0 para interrupt y trap gates   
-GateType = si 0x5 => 32-bit task gate
-           si 0x6 => 16-bit interrupt gate
-           si 0x7 => 16-bit trap gate
-           si 0xE => 32-bit interrupt gate
-           si 0xF => 32-bit trap gate
-#+END_SRC

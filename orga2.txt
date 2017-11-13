@@ -21,7 +21,7 @@ Segmentacion:
   que vayamos a tener para poder hacer cambios de contexto
 
 Paginacion:
-  Para la paginacion tendremos por cada tarera un directorio de paginas con una tabla
+  Para la paginacion tendremos por cada tarea un directorio de paginas con una tabla
   No sera necesario usar mas de una tabla pues todas las direcciones virtuales indicadas
   en la figura son continuas y entran en una sola page table (1MB + 20K)
   En las page table de cada tarea tendremos mapeado el kernel usando Identity mapping
@@ -37,7 +37,7 @@ Paginacion:
   U/S = 1
   addr = 0x100 (256)
 
-  para los datos de la tarea 
+  para los datos de la tarea // ejercicio d ejemplo
   P = 1
   R/W = 1
   U/S = 1
@@ -60,22 +60,22 @@ Tareas
   para la tarea idle y la inicial (con sus respectivos descriptores)
   todos sus descriptores tendran DPL = 0 , P = 1 y limit = 0x67
   Todas las TSS de las tareas tendran
-  EFLAGS = 0x202
-  EIP = 0x100000
-  EBP = 0x102000
-  ESP = 0x102000
-  CS  = 11011b
+  EFLAGS = 0x202 
+  EIP = 0x100000 // por consigna
+  EBP = 0x102000 // por consigna
+  ESP = 0x102000 // por consigna
+  CS  = 11011b   
   resto de los segmentos  = 100011b
   REGISTROS DE PROP GENERAL = 0xFF
-  SS0 = 0x1000000
-  ESP0 = 0x103FFF
-  IOMAP = 0xFFFF
+  SS0 = 0x1000000 // por consigna
+  ESP0 = 0x103FFF // por consigna
+  IOMAP = 0xFFFF 
   CR3 = dependera del numero de la tarea
 
 
 Interrrupciones:
   Para las interrupciones necesitaremos cargar una IDT con entradas para
-  todos las excepcioens del procesador y la interrupcion del reloj (32)
+  todas las excepciones del procesador y la interrupcion del reloj (32)
   todos los descriptores tendran p = 1 DPL = 0 y selector de segmento = 0x8
   se asumer que el PIC ya esta configurado
 
