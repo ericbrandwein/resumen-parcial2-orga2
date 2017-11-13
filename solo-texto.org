@@ -1,7 +1,8 @@
 #+LATEX_HEADER: \usepackage[margin=0.1in]{geometry}
 #+OPTIONS: toc:nil
 #+TITLE:
-\setlength{\parindent}{0em}
+#+LATEX_CLASS_OPTIONS: [12pt]
+#+LATEX_header: \setlength{\parindent}{0em}
 * resumen
 
 
@@ -10,7 +11,7 @@ Esquema de segmentacion flat. 4 segmentos, 2 de codigo con nivel
 (DPL) 0 y 3 y dos de datos, con nivel 0 y 3. No usaremos LDT si
  no sólo la GDT. La GDT tendrá una entrada nula y además las
 entradas para las TSSs. Las primeras entradas de la GDT tendrán:
- (Base=0, G=1, Límite=lim, P=1, S=1). 
+ (Base=0, G=1, Límite=lim, P=1, S=1, DB=1). 
 Seg-codigo-sys: (DLP=0, Type=0xA), Seg-datos-sys (DPL=0, Type=2)
 Seg-codigo-usr: (DLP=3, Type=0xA), Seg-datos-usr (DPL=3, Type=2),
 donde lim sera el mismo para todo y dependera del tamaño de la
@@ -21,9 +22,13 @@ MAX_ADDR = limite * 0x1000 + 0xFFF
 Número de entradas en PD y PT: 1024 = 2^10 ; 
 Tamaño de cada entrada: 32 bits = 4 bytes ; 
 Tamaño de página: 4kb = 2^12 bytes.
-Por cada tarea un directorio de paginas con X tabla
-*** Ejemplo inicializo tarea: 
-*Mapeo de kernel con Identity mapping* (PDEs: P = 1, R/W = 1, U/S = 0
+Por cada tarea un directorio de paginas con X tabla.
+
+*Ejemplo inicializo tarea*: 
+
+*Mapeo de kernel con Identity mapping* 
+
+(PDEs: P = 1, R/W = 1, U/S = 0
  resto 0; PTE: P = 1, R/W = 1, U/S = 0, resto 0).
 *mapeo codigo tarea*: P = 1, R/W = 0,  U/S = 1
 *mapeo datos tarea*: P = 1, R/W = 1,  U/S = 1
@@ -86,4 +91,107 @@ selector de segmento = 0x8. Se asume PIC ya configurado.
 *IDTR*
 ~idtr[0:15] = limit  ;~
 ~idtr[16:47] = base = direccion lineal en donde empieza la IDT~
+
+*Rutina principal del reloj*
+
+#+BEGIN_SRC asm
+section .data
+    tss_offset: dd 0x00000000
+    tss_selector: dw 0x0000
+section .text
+    pushad         
+    call pic_fin_int8              ; aviso al PIC que atienda interr.
+    cmp [ciclos_restantes], 0x0    ; a la tarea le quedan ciclos?
+    jne .quedan_ciclos
+    mov [ciclos_restantes], k      ; reinicializo k ciclos
+    call sched_tarea_siguiente     ; pregunto por la tarea siguiente
+    str cx
+    cmp ax, cx                     ; me fijo de no saltar a la misma tarea
+    je .reinicia_misma_tarea
+    mov [tss_selector], ax
+    jmp far [tss_offset]           ; salto a la tarea siguiente
+    jmp .misma_tarea
+
+.quedan_ciclos:                    ; si quedaban ciclos
+    dec [ciclos_restantes]         ; ahora queda un ciclo menos
+    popad                          ; popeo registros
+    iret                           ; retorno
+
+.reinicia_misma_tarea:                            ; vengo de otra tarea
+    mov [ciclos_restantes], k      ; reinicializo k ciclos
+    popad                          ; recupero registros
+    iret
+#+END_SRC
+
+#+begin_src C
+uint sched_tarea_siguiente () {
+    if (scheduler.tarea_actual == 7)
+        scheduler.tarea_actual = 0; // si llego al final vuelvo al ppio
+    else
+        scheduler.tarea_actual ++;  // actualizo sched
+
+    return scheduler.tareas[scheduler.tarea_actual].tss_selector;
+}
+#+end_src
+
+#+begin_src C
+uint sched_tss_seector (uint task_id) {
+    int i;
+    for (i = 0; i < 8; i++) {
+        if (scheduler.tareas[i].id == task_id) {
+            scheduler.tarea_actual = i;              // la nueva tarea actual
+            return scheduler.tareas[i].tss_selector; //devuelvo el selector
+        }
+    }
+    return 0;
+    // considerar return scheduler.tareas[scheduler.tarea_actual].tss_selector;
+}
+#+end_src
+
+*Estructura del Scheduler*
+
+#+begin_src C
+typedef struct sched_t { uint tarea_actual; sched_tarea tareas[8]; }
+
+typedef struct sched_tarea { uint tss_selector; uint id } sched_tarea;
+
+// Variables Globales
+extern uint ciclos_restantes;
+extern sched_t scheduler; 
+#+end_src
+
+Escribir el código de la rutina de interrupción de teclado
+#+begin_src asm
+    pushad
+    call pin_fin_intr
+    in ax, 0x60                ; leo scan code
+    cmp ax, 0x1E               ; me fijo si fue la a
+    jne .fin                   ; si no, chau
+    add [ciclos_retantes], k   ; sumo k ciclos
+.fin:
+    popad
+    iret    
+#+end_src
+#+begin_src C++
+void chequear_modificaciones () {
+    void * dir = rcr3();      // guardo cr3 actual
+    dir = ( dir >> 12) << 12; // limpo bits bajos
+    dir = dir + 8;            // la primera tabla es del kernel
+    dir = ((*dir) >> 12) << 12;// las tareas solo usan una tabla
+    // es decir, estan todas en la misma tabla (x eso 500).
+    int i;
+    for (i = 0; i < 2*k; i++) { // hay 2k PTE validas
+        int actual = sched_tarea_actual();
+        page_entry* tab = (page entry*) dir; //casteo dir a un 
+                                             // arreglo de entradas
+                                             // de paginacion
+        if (i/2 != actual && tab[i].D) 
+            fue_modificada (i/2, actual);
+            
+        tab[i].D = 0;
+    }
+    tlbflush();         
+    return;
+}
+#+end_src
 
