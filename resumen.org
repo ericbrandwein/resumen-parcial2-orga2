@@ -1,9 +1,7 @@
 #+LATEX_HEADER: \usepackage[margin=0.1in]{geometry}
 #+OPTIONS: toc:nil
 #+TITLE:
-
 * resumen
-
 
 ** Descriptores de la GDT
 #+ATTR_HTML: :width 50% :height 50% 
@@ -59,6 +57,8 @@ PTE: P = 1, R/W = 0, U/S = 0, PWT = 0, PCD = 0, A = 0, D = 0, PAT = 0, G = 0
 **** Page Table Entry (PTE)
 - *D*: Dirty. Si fue escrita alguna página a la que apunta esto. La dessetea el SO.
 - *A, U/S, R/W*: Lo mismo que en el PDE. 
+- *G*: Ignorado.
+
 
 
 *** Dirección logica -> virtual -> física
