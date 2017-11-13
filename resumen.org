@@ -1,19 +1,7 @@
-#+LATEX_HEADER: \usepackage[margin=0in]{geometry}
+#+LATEX_HEADER: \usepackage[margin=0.1in]{geometry}
 #+OPTIONS: toc:nil
-#+LATEX_HEADER: \RequirePackage{fancyvrb}
-#+LATEX_HEADER: \DefineVerbatimEnvironment{verbatim}{Verbatim}{fontsize=\scriptsize}
-
 #+TITLE:
-* Que poner en el resumen
-- [X] Descriptores de la GDT
-- [X] Descriptores de la IDT
-- [X] Descriptores de las esctructuras de paginación 
-- [X] Como es la TSS
-- [X] Como convertir una direccion logica -> lineal -> fisica
-- Ejemplos de funciones del TP3:
-  - En C
-  - En Assembly 
-
+* resumen
 
 ** Descriptores de la GDT
 #+ATTR_HTML: :width 50% :height 50% 
@@ -26,11 +14,29 @@
 #+ATTR_HTML: :width 50% :height 50% 
 [[./imagenes/32bit-TSS.png]]
 
+Por cada tarea se necesita una TSS en memoria, que se 
+carga en la GDT.
+
+Es necesaria 1 para la tarea inicial, puede ser necesaria
+una idle, y luego uan para cada tarea de usuario.
+
+EIP y ESP deben ser posiciones válidas.
+
 eflags = ~0x202~ con interrupciones, ~0x2~ sin
 
 iomap = ~0xFFFF~
 
-** Paging
+** Paging (32 bits)
+Número de entradas en PD y PT: 1024 = 2^10 ; 
+Tamaño de cada entrada: 32 bits = 4 bytes ; 
+Tamaño de página: 4kb = 2^12 bytes
+
+*** Ejemplo: 
+**** Mapeo de kernel:
+PDEs: P = 1, R/W = ?, U/S = ?, PWT = 0, PCD = 0, A = 0, PS = 0
+PTE: P = 1, R/W = 0, U/S = 0, PWT = 0, PCD = 0, A = 0, D = 0, PAT = 0, G = 0
+
+
 *** Estructuras
 #+ATTR_HTML: :width 50% :height 50% 
 [[./imagenes/CR3-PDE-PTE.png]]
@@ -45,13 +51,14 @@ iomap = ~0xFFFF~
 - *R/W*: Si se puede escribir o leer y escribir. Si el bit WP del CR0 esta en 0, el kernel siempre puede escribir.
 - *U/S*: Si es 0, solo si tenes un CPL = 0 podes tocar estas páginas.
 - *A*: Accessed. Si fue leída o escrita alguna página a la que apunta esto. La dessetea el SO.
-# - *G*: Ignorado.
-# - *D*: Dirty. Si fue escrita alguna página a la que apunta esto.
+- *G*: Global. Ignorado.
+- *D*: Dirty. Si fue escrita alguna página a la que apunta esto.
 
 **** Page Table Entry (PTE)
 - *D*: Dirty. Si fue escrita alguna página a la que apunta esto. La dessetea el SO.
 - *A, U/S, R/W*: Lo mismo que en el PDE. 
 - *G*: Ignorado.
+
 
 
 *** Dirección logica -> virtual -> física
@@ -112,7 +119,8 @@ struct IDTDescr {
 | P |  DPL  | S |    GateType   |
 +---+---+---+---+---+---+---+---+
 P = present
-DPL = Descriptor Priviledge Level = el nivel de privilegios mínimo que tiene que tener el descriptor que llama para que lo pueda hacer.
+DPL = Descriptor Priviledge Level = el nivel de privilegios mínimo que tiene
+que tener el descriptor que llama para que lo pueda hacer.
 S = 0 para interrupt y trap gates   
 GateType = si 0x5 => 32-bit task gate
            si 0x6 => 16-bit interrupt gate

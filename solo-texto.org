@@ -1,0 +1,245 @@
+#+LATEX_HEADER: \usepackage[margin=0.1in]{geometry}
+#+OPTIONS: toc:nil
+#+TITLE:
+#+LATEX_CLASS_OPTIONS: [12pt]
+#+LATEX_header: \setlength{\parindent}{0em}
+* resumen
+
+
+** Segmentación
+Esquema de segmentacion flat. 4 segmentos, 2 de codigo con nivel
+(DPL) 0 y 3 y dos de datos, con nivel 0 y 3. No usaremos LDT si
+ no sólo la GDT (arreglo de descriptores de 8 bytes).
+ La GDT tendrá una entrada nula y además las
+entradas para las TSSs. Las primeras entradas de la GDT tendrán:
+ (Base=0, G=1, Límite=lim, P=1, S=1, DB=1). 
+Seg-codigo-sys: (DLP=0, Type=0xA), Seg-datos-sys (DPL=0, Type=2)
+Seg-codigo-usr: (DLP=3, Type=0xA), Seg-datos-usr (DPL=3, Type=2),
+donde lim sera el mismo para todo y dependera del tamaño de la
+memoria...
+MAX_ADDR = limite * 0x1000 + 0xFFF
+
+** Paging (32 bits)
+Número de entradas en PD y PT: 1024 = 2^10 ; 
+Tamaño de cada entrada: 32 bits = 4 bytes ; 
+Tamaño de página: 4kb = 2^12 bytes.
+Por cada tarea un directorio de paginas con X tabla.
+
+*Ejemplo inicializo tarea*: 
+
+*Mapeo de kernel con Identity mapping* 
+
+(PDEs: P = 1, R/W = 1, U/S = 0
+ resto 0; PTE: P = 1, R/W = 1, U/S = 0, resto 0).
+*mapeo codigo tarea*: P = 1, R/W = 0,  U/S = 1
+*mapeo datos tarea*: P = 1, R/W = 1,  U/S = 1
+*mapeo pila nivel 3 tarea*: P=1, R/W=1, U/S=1
+*mapeo pila nivel 0 tarea*: P=1, R/W=1, U/S=0
+
+*CR3*:Address of page directory. Los 12 bits menos significativos 
+se asumen que son 0.
+
+*Page Directory Entry (PDE)*
+*Address of page table*: los 12 bits menos significativos se asumen
+ que son 0.
+*R/W*: Si se puede escribir o leer y escribir. Si el bit WP del CR0
+ esta en 0, el kernel siempre puede escribir.
+*U/S*: Si es 0, solo si tenes un CPL = 0 podes tocar estas páginas.
+*A*: Accessed. Si fue leída o escrita alguna página a la que apunta
+ esto. La desetea el SO.
+*G*: Global. Ignorado.
+*D*: Dirty. Si fue escrita alguna página a la que apunta esto.
+
+*Page Table Entry (PTE)*
+*D*: Dirty. Si fue escrita alguna página a la que apunta esto. 
+La dessetea el SO. *A, U/S, R/W*: Lo mismo que en el PDE. 
+
+*Dirección logica -> virtual -> física*
+*Modo real*: ~logica = selector_de_segmento:offset~
+
+~; fisica = selector_de_segmento << 4 + offset~
+*Modo protegido*
+#+BEGIN_SRC
+logica = selector_de_segmento:offset
+selector_de_segmento[0:1] = RPL = requested priviledge level.
+selector_de_segmento[2] = TI = Si es 1, el segmento esta en la LDT. Sino, en la GDT.
+selector_de_segmento[3:15] = índice en la GDT/LDT.
+entrada_GDT = GDTR + selector_de_segmento.indice 
+virtual = entrada_GDT.Base + logica.offset
+
+virtual[0:11] = offset
+virtual[12:21] = table
+virtual[22:31] = directory
+directory_entry = CR3 + virtual.directory
+page_table_entry = directory_entry.address + virtual.table
+fisica = page_table_entry.address + virtual.offset 
+#+END_SRC
+
+** Tareas
+Por cada tarea se necesita una TSS en memoria, que se carga en la
+GDT. Es necesaria 1 para la tarea inicial, puede ser necesaria
+una idle, y luego uan para cada tarea de usuario.
+
+EIP y ESP deben ser posiciones válidas. eflags = ~0x202~ con 
+interrupciones, ~0x2~ sin. iomap = ~0xFFFF~
+
+/NOTA/: el *task register* tiene el descriptor y selector de
+segmento de la TSS de la tarea en curso. 
+
+** Interrupciones
+La IDT (como GDT, arreglo e descriptores) se se carga con LIDT en 
+IDTR, se puede leer con SITD.
+Necesitaremos llenar todas las excepciones del procesador y
+ (si piden) la interrupcion del reloj (32) etc.
+Todos los descriptores tendran P = 1, DPL = 0 y 
+selector de segmento = 0x8. Se asume PIC ya configurado.
+
+/NOTA/: *task switch* si /cambia el nivel de privilegio/, cambia
+la pila y pushea, en este orden: SS (del pceso int), ESP (idem),
+EFLAGS, CS, EIP, ErrorCode (si es excepcion). Si no, solo 
+pushea EFLAgS< CS, EIP, ErrirCode (si excepcion).
+*IDTR*
+~idtr[0:15] = limit  ;~
+~idtr[16:47] = base = direccion lineal en donde empieza la IDT~
+
+*Rutina principal del reloj*
+
+#+BEGIN_SRC asm
+section .data
+    tss_offset: dd 0x00000000
+    tss_selector: dw 0x0000
+section .text
+    pushad         
+    call pic_fin_int8              ; aviso al PIC que atienda interr.
+    cmp [ciclos_restantes], 0x0    ; a la tarea le quedan ciclos?
+    jne .quedan_ciclos
+    mov [ciclos_restantes], k      ; reinicializo k ciclos
+    call sched_tarea_siguiente     ; pregunto por la tarea siguiente
+    str cx
+    cmp ax, cx                     ; me fijo de no saltar a la misma tarea
+    je .reinicia_misma_tarea
+    mov [tss_selector], ax
+    jmp far [tss_offset]           ; salto a la tarea siguiente
+    jmp .misma_tarea
+
+.quedan_ciclos:                    ; si quedaban ciclos
+    dec [ciclos_restantes]         ; ahora queda un ciclo menos
+    popad                          ; popeo registros
+    iret                           ; retorno
+
+.reinicia_misma_tarea:                            ; vengo de otra tarea
+    mov [ciclos_restantes], k      ; reinicializo k ciclos
+    popad                          ; recupero registros
+    iret
+#+END_SRC
+
+#+begin_src C
+uint sched_tarea_siguiente () {
+    if (scheduler.tarea_actual == 7)
+        scheduler.tarea_actual = 0; // si llego al final vuelvo al ppio
+    else
+        scheduler.tarea_actual ++;  // actualizo sched
+
+    return scheduler.tareas[scheduler.tarea_actual].tss_selector;
+}
+#+end_src
+
+#+begin_src C
+uint sched_tss_seector (uint task_id) {
+    int i;
+    for (i = 0; i < 8; i++) {
+        if (scheduler.tareas[i].id == task_id) {
+            scheduler.tarea_actual = i;              // la nueva tarea actual
+            return scheduler.tareas[i].tss_selector; //devuelvo el selector
+        }
+    }
+    return 0;
+    // considerar return scheduler.tareas[scheduler.tarea_actual].tss_selector;
+}
+#+end_src
+
+*Estructura del Scheduler*
+
+#+begin_src C
+typedef struct sched_t { uint tarea_actual; sched_tarea tareas[8]; }
+
+typedef struct sched_tarea { uint tss_selector; uint id } sched_tarea;
+
+// Variables Globales
+extern uint ciclos_restantes;
+extern sched_t scheduler; 
+#+end_src
+
+Escribir el código de la rutina de interrupción de teclado
+#+begin_src asm
+    pushad
+    call pin_fin_intr
+    in ax, 0x60                ; leo scan code
+    cmp ax, 0x1E               ; me fijo si fue la a
+    jne .fin                   ; si no, chau
+    add [ciclos_retantes], k   ; sumo k ciclos
+.fin:
+    popad
+    iret    
+#+end_src
+#+begin_src C++
+void chequear_modificaciones () {
+    void * dir = rcr3();      // guardo cr3 actual
+    dir = ( dir >> 12) << 12; // limpo bits bajos
+    dir = dir + 8;            // la primera tabla es del kernel
+    dir = ((*dir) >> 12) << 12;// las tareas solo usan una tabla
+    // es decir, estan todas en la misma tabla (x eso 500).
+    int i;
+    for (i = 0; i < 2*k; i++) { // hay 2k PTE validas
+        int actual = sched_tarea_actual();
+        page_entry* tab = (page entry*) dir; //casteo dir a un 
+                                             // arreglo de entradas
+                                             // de paginacion
+        if (i/2 != actual && tab[i].D) 
+            fue_modificada (i/2, actual);
+            
+        tab[i].D = 0;
+    }
+    tlbflush();         
+    return;
+}
+#+end_src
+
+#+begin_src c
+void mapear_pagina (uint virtual, uint cr3, uint fisica, uint r_w, uint u_s) { 
+    uint pde_index = virtual >> 22;
+    utin pte_index = (virtual << 10) >> 22; 
+    pde* directorio = (pde*) cr3;
+    if (!directorio[pde_index].P)
+        incicilzar_directorio (pde_index, cr3, r_w, u_s);
+    pte* tablas = (pte*) diectorio[pde_index].addr << 12);
+    inicializar_tabla (pde_index, pte_index, cr3, r_w, u_s);
+    tablas[pte_index].addr = fisica >> 12;
+    tlbflush ();
+}
+
+void inicializar_tabla (uint pde_index, uint pte_index, uint cr3, uint r_w, uint u_s) {
+    pde * directorio = (pde*) cr3;
+    pte* tabla = (pte*) (directorio[pde_index].addr << 12);
+    //TODO
+}
+
+void inicializar_directorio (uint indicem uint cr3, uint r_w, uint u_s) {
+    pte* tabla = (pte*) obtener_pagina_libre();
+    pde* directorio = (pde*) cr3;
+// TODO terminar
+}
+#+end_src
+
+* asm
+*POP rX:* ~rX <- [ESP]; ESP <- EST + 1 ;~
+*RET:* ~pop EIP;~
+*IRET:* ~pop EIP; pop CS; pop EFLAGS ;;~
+
+*near absolute CALL rX:* ~push EIP; EIP <- rX ;~
+*JMP rX:* ~EIP <- rX~
+
+*STR rX:* guardo task register en rX.
+* Potección
+El interrupt handler no puede tener privilegio menor (mayor
+numericamente) que el proceso que corre.

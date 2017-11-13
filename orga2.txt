@@ -1,0 +1,114 @@
+Segmentacion:
+  dado que vamos a usar un esquema de segmentacion flat 
+  es decir que crearemos 4 segmentos, dos de codigo con nivel (DPL) 0 y 3 
+  y dos de datos, con nivel 0 y 3
+  para este esquema no usaremos LDT si no que definiremos todo en la GDT
+
+  Indice  Base  DPL  Type  G  Limite  P  D/B  S
+  0        0     0    0    0    0     0   0   0
+  1        0     0    0xA  1    lim   1   1   1
+  2        0     0    0x2  1    lim   1   1   1
+  3        0     3    0xA  1    lim   1   1   1
+  4        0     3    0x2  1    lim   1   1   1
+
+  donde lim sera el mismo para todo y dependera del tamaño de la memoria
+  pero sabemos que para el Kernel necesitaremos 1MB y 20KB por cada tarea
+  es decir que con N tareas tendriamos que
+      lim = 0x100 + N * 5 (consultar si falta restar 1)
+            (256)
+
+  A su vez tendremos que agregar a la GDT un descriptor de TSS por cada tarea
+  que vayamos a tener para poder hacer cambios de contexto
+
+Paginacion:
+  Para la paginacion tendremos por cada tarea un directorio de paginas con una tabla
+  No sera necesario usar mas de una tabla pues todas las direcciones virtuales indicadas
+  en la figura son continuas y entran en una sola page table (1MB + 20K)
+  En las page table de cada tarea tendremos mapeado el kernel usando Identity mapping
+  para esto utilizaremos las entradas 0 - 255 con los bits
+  P = 1
+  R/W = 1
+  U/S = 0
+  addr = indice del Page Table
+
+  luego, las para el codigo tendremos en la entrada 256 
+  P = 1
+  R/W = 0
+  U/S = 1
+  addr = 0x100 (256)
+
+  para los datos de la tarea // ejercicio d ejemplo
+  P = 1
+  R/W = 1
+  U/S = 1
+  addr = dependera de la tarea
+
+  para los pila nivel 3 de la tarea 
+  P = 1
+  R/W = 1
+  U/S = 1
+  addr = dependera de la tarea
+
+  para los pila nivel 0 de la tarea 
+  P = 1
+  R/W = 1
+  U/S = 0
+  addr = dependera de la tarea
+
+Tareas
+  para el manejo de tareas tedremos una TSS por tarea ademas de las TSS 
+  para la tarea idle y la inicial (con sus respectivos descriptores)
+  todos sus descriptores tendran DPL = 0 , P = 1 y limit = 0x67
+  Todas las TSS de las tareas tendran
+  EFLAGS = 0x202 
+  EIP = 0x100000 // por consigna
+  EBP = 0x102000 // por consigna
+  ESP = 0x102000 // por consigna
+  CS  = 11011b   
+  resto de los segmentos  = 100011b
+  REGISTROS DE PROP GENERAL = 0xFF
+  SS0 = 0x1000000 // por consigna
+  ESP0 = 0x103FFF // por consigna
+  IOMAP = 0xFFFF 
+  CR3 = dependera del numero de la tarea
+
+
+Interrrupciones:
+  Para las interrupciones necesitaremos cargar una IDT con entradas para
+  todas las excepciones del procesador y la interrupcion del reloj (32)
+  todos los descriptores tendran p = 1 DPL = 0 y selector de segmento = 0x8
+  se asumer que el PIC ya esta configurado
+
+Privilegios:
+  El sistema estara dividido en dos niveles de privilegios, 0 y 3
+
+Registros de sistema:
+  En los registros de sistema tendremos el CR0 con los bit de modo protegido y 
+  de paginacion activados
+  en los EFLAGS tendremos las interrrupciones activas
+  y en el CR3 pondremos la direccion de directorio de paginas actual
+
+scheduler:
+  Tendremos un scheduler Round Robin que correra una tarea por ciclo de reloj
+  y en el cual mantendremos registro de la lista de tareas con sus TSS respectivas
+  y en particular cual esta corriendo
+
+offset: dd 0
+selector: dd 0
+
+_isr32:
+  pushad
+  call fin_intr_pic1
+
+  call sched_next_task
+
+  str cx
+
+  cmp ax, cx
+  je .fin
+
+  mov [selector], ax
+  jmp far [offset]
+.fin:
+  popad
+iret
