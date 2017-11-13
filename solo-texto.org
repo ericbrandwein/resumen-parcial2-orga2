@@ -3,10 +3,8 @@
 #+TITLE:
 #+LATEX_CLASS_OPTIONS: [12pt]
 #+LATEX_header: \setlength{\parindent}{0em}
-* resumen
 
-
-** Segmentación
+*_Segmentación_*
 Esquema de segmentacion flat. 4 segmentos, 2 de codigo con nivel
 (DPL) 0 y 3 y dos de datos, con nivel 0 y 3. No usaremos LDT si
  no sólo la GDT (arreglo de descriptores de 8 bytes).
@@ -19,7 +17,10 @@ donde lim sera el mismo para todo y dependera del tamaño de la
 memoria...
 MAX_ADDR = limite * 0x1000 + 0xFFF
 
-** Paging (32 bits)
+_G flag_: ~G=1  -->  MAX_ADDR == limite * 0x1000 + 0xFFF~
+_expand-down_: rango de offsets con B=1  ~base[limit+1 : OxFFFFFFFF]~
+
+*_Paging (32 bits)_*
 Número de entradas en PD y PT: 1024 = 2^10 ; 
 Tamaño de cada entrada: 32 bits = 4 bytes ; 
 Tamaño de página: 4kb = 2^12 bytes.
@@ -75,7 +76,7 @@ page_table_entry = directory_entry.address + virtual.table
 fisica = page_table_entry.address + virtual.offset 
 #+END_SRC
 
-** Tareas
+*_Tareas_*
 Por cada tarea se necesita una TSS en memoria, que se carga en la
 GDT. Es necesaria 1 para la tarea inicial, puede ser necesaria
 una idle, y luego uan para cada tarea de usuario.
@@ -86,7 +87,7 @@ interrupciones, ~0x2~ sin. iomap = ~0xFFFF~
 /NOTA/: el *task register* tiene el descriptor y selector de
 segmento de la TSS de la tarea en curso. 
 
-** Interrupciones
+*_Interrupciones_*
 La IDT (como GDT, arreglo e descriptores) se se carga con LIDT en 
 IDTR, se puede leer con SITD.
 Necesitaremos llenar todas las excepciones del procesador y
@@ -206,32 +207,52 @@ void chequear_modificaciones () {
 #+end_src
 
 #+begin_src c
-void mapear_pagina (uint virtual, uint cr3, uint fisica, uint r_w, uint u_s) { 
+void mapear_pagina (uint virtual, uint cr3, uint fisica, uint read_write, uint user_supervisor) { 
     uint pde_index = virtual >> 22;
     utin pte_index = (virtual << 10) >> 22; 
     pde* directorio = (pde*) cr3;
-    if (!directorio[pde_index].P)
-        incicilzar_directorio (pde_index, cr3, r_w, u_s);
+    if (!directorio[pde_index].p)
+        incicilzar_directorio (pde_index, cr3, read_write, user_supervisor);
     pte* tablas = (pte*) diectorio[pde_index].addr << 12);
-    inicializar_tabla (pde_index, pte_index, cr3, r_w, u_s);
+    inicializar_tabla (pde_index, pte_index, cr3, read_write, user_supervisor);
     tablas[pte_index].addr = fisica >> 12;
     tlbflush ();
 }
-
-void inicializar_tabla (uint pde_index, uint pte_index, uint cr3, uint r_w, uint u_s) {
+void inicializar_tabla (uint pde_index, uint pte_index, uint cr3, uint read_write, uint user_supervisor) {
     pde * directorio = (pde*) cr3;
     pte* tabla = (pte*) (directorio[pde_index].addr << 12);
-    //TODO
+    tabla[pte_index].p = 1
+    tabla[pte_index].read_write = read_write;
+    tabla[pte_index].user_supervisor = user_supervisor;
+    tabla[pte_index].acceded = 0;
+    tabla[pte_index].dirty =
+    tabla[pte_index].cache_diable = 0;
+    tabla[pte_index].write_through = 0;
+    tabla[pte_index].pat = 0;
+    tabla[pte_index].global = 0;
+    tabla[pte_index].ignored = 0;
 }
-
-void inicializar_directorio (uint indicem uint cr3, uint r_w, uint u_s) {
+void inicializar_directorio (uint indicem uint cr3, uint read_write, uint user_supervisor) {
     pte* tabla = (pte*) obtener_pagina_libre();
     pde* directorio = (pde*) cr3;
-// TODO terminar
+    directorio[pde_index].p = 1;
+    directorio[pde_index].read_write = read_write;
+    directorio[pde_index].user_supervisor = user_supervisor;
+    directorio[pde_index].addr = ((int) tabla) >> 12;
+    directorio[pde_index].accessed = 0;
+    directorio[pde_index].ignored1 = 0;
+    directorio[pde_index].page_size = 0;
+    directorio[pde_index].ignored2 = 0;
+    directorio[pde_index].cache_diable = 0;
+    directorio[pde_index].write_through = 0;
+    directorio[pde_index].global = 0;
+    ini i;
+    for (i =0; i < 1024; i++)
+        tabla[i].present = 0;
 }
 #+end_src
 
-* asm
+*__asm__*
 *POP rX:* ~rX <- [ESP]; ESP <- EST + 1 ;~
 *RET:* ~pop EIP;~
 *IRET:* ~pop EIP; pop CS; pop EFLAGS ;;~
@@ -240,6 +261,65 @@ void inicializar_directorio (uint indicem uint cr3, uint r_w, uint u_s) {
 *JMP rX:* ~EIP <- rX~
 
 *STR rX:* guardo task register en rX.
-* Potección
+
+*__Potección__*
 El interrupt handler no puede tener privilegio menor (mayor
 numericamente) que el proceso que corre.
+
+
+*___Protección___*
+
+*Enabling*
+*Segment-protection*: Setting CR0.PE = 1 switch to protected mode which
+ in turn enables segment protection mechanism.
+*Page level protection*: Is automatically enabled when enabling paging
+ (ie setting CR0.PG=1)
+
+*__Fields and Flags__*
+
+*In /Segment Descriptor/*:
+ type (S) flag*: system or code/data segment
+*Type Field*: code, data or system
+*Limit* field: size
+*G* flag: granularity. If enabled, the limit counts the number of 4kB pages,
+instead of bytes.
+*E*: expand down?
+
+*DPL* field: 
+indicates the numerically highest privilege level that a program's CPL
+can have to be allowed to acces the segment. 
+
+*In /Segment Selector/*:
+*RPL*: requested provilege level.
+even if a program has CPL with sufficient privilege to access to a segment,
+access is denied if RPL does not.
+*cs* register:
+*CPL*: (bits 0:1)
+privilege level of code segment from which instructions are being fetched 
+
+*In /page entry/*:
+*U/S* flag: User/Supervisor 
+*R/W*: read-only or read/write
+*__Type Cheking__*
+*_When a segment selector is loades into a segment register_*:
+_*_ CS register only can bo loaded with a selector for code segment.
+_*_ Segment selectors that are not readable or for system segments cannot be
+loaded into data registers (DS, ES, FS and GS).
+_*_ Only segment selectors of writable data segments can de loaded into SS reg.
+*_When instr access segments whose descriptors are already loaded into seg regs*
+_*_ No instruction may write into an executable segment
+_*_ No instruction may write into data  segment if it is not writable
+_*_ No instruction may read an executable segment unless the readable flag is
+set (in TYPE)
+
+#+begin_src asm
+cargar_los_registros_de_segmento:           activar_paginacion:
+    xor eax, eax                                mov eax, cr0
+    mov ax, SELECTOR_SEGMENTO_DATA              or eax, 0x80000000
+    mov ds, ax                                  mov cr0, eax
+    mov es, ax
+    mov ss, ax                              div_zero:
+    mov gs, ax                                  xor bx, bx
+    mov ax, VIDEO                               div bx
+    mov fs, ax
+#+end_src

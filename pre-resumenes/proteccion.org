@@ -1,46 +1,38 @@
-#+LATEX_HEADER: \usepackage[margin=0in]{geometry}
+#+LATEX_HEADER: \usepackage[margin=0.1in]{geometry}
 #+OPTIONS: toc:nil
 #+TITLE:
+#+LATEX_header: \setlength{\parindent}{0em}
 
-* Protección
+*___Protección___*
 
-** Enabling
-
+*Enabling*
 *Segment-protection*: Setting CR0.PE = 1 switch to protected mode which
  in turn enables segment protection mechanism.
 *Page level protection*: Is automatically enabled when enabling paging
  (ie setting CR0.PG=1)
 
-** Fields and Flags
+*__Fields and Flags__*
 
-*** In /Segment Descriptor/:
+*In /Segment Descriptor/*:
+ type (S) flag*: system or code/data segment
+*Type Field*: code, data or system
+*Limit* field: size
+*G* flag: granularity. If enabled, the limit counts the number of 4kB pages,
+instead of bytes.
+*E*: expand down?
 
-**** Descriptor type (*S*) flag: system or code/data segment
-
-**** *Type* Field: code, data or system
-
-**** *Limit* field: size
-
-**** *G* flag: granularity. If enabled, the limit counts the number of 4kB pages, instead of bytes.
-
-**** *E*: expand down?
-
-**** *DPL* field: 
+*DPL* field: 
 indicates the numerically highest privilege level that a program's CPL
 can have to be allowed to acces the segment. 
 
-*** In /Segment Selector/:
-
-**** *RPL*: requested provilege level.
+*In /Segment Selector/*:
+*RPL*: requested provilege level.
 even if a program has CPL with sufficient privilege to access to a segment,
 access is denied if RPL does not.
-*** In *cs* register:
+*cs* register:
+*CPL*: (bits 0:1)
+privilege level of code segment from which instructions are being fetched 
 
-**** *CPL*: (bits 0:1)
- privilege level of code segment from which instructions are being fetched 
-
-*** In /page entry/:
-
-**** *U/S* flag: User/Supervisor 
-
-**** *R/W*: read-only or read/write
+*In /page entry/*:
+*U/S* flag: User/Supervisor 
+*R/W*: read-only or read/write
